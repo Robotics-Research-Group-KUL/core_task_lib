@@ -1,3 +1,23 @@
+--  Copyright (c) 2025 KU Leuven, Belgium
+--
+--  Author: Santiago Iregui
+--  email: <santiago.iregui@kuleuven.be>
+-- 
+-- Code made based on Cristian Vergara's and Erwin Aertbeliën's code. 
+--
+--  GNU Lesser General Public License Usage
+--  Alternatively, this file may be used under the terms of the GNU Lesser
+--  General Public License version 3 as published by the Free Software
+--  Foundation and appearing in the file LICENSE.LGPLv3 included in the
+--  packaging of this file. Please review the following information to
+--  ensure the GNU Lesser General Public License version 3 requirements
+--  will be met: https://www.gnu.org/licenses/lgpl.html.
+-- 
+--  This program is distributed in the hope that it will be useful,
+--  but WITHOUT ANY WARRANTY; without even the implied warranty of
+--  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+--  GNU Lesser General Public License for more details.
+
 require("context")
 require("geometric")
 require("libexpressiongraph_spline")
@@ -15,7 +35,7 @@ param = reqs.parameters(task_description,{
     reqs.params.scalar({name="maxvel", description="Maximum velocity [m/s]", default = 0.1, required=true, maximum = 0.5}),
     reqs.params.scalar({name="maxacc", description="Maximum acceleration [m/s^2]", default = 0.1, required=true, maximum = 0.5}),
     reqs.params.string({name="task_frame", description="Name of frame that will follow the spline", default = "tcp_frame", required=false}),
-    reqs.params.string({name="csv_file_path", description="File path for CSV file containing the points that define the spline.", default = "$[etasl_ros2_application_template]/task_specifications/libraries/core_task_lib/task_specifications/misc/example_spline.csv", pattern=".*\\.csv$", required=true}),
+    reqs.params.string({name="csv_file_path", description="File path for CSV file containing the points that define the spline.", default = "$[crospi_application_template]/task_specifications/libraries/core_task_lib/task_specifications/misc/example_spline.csv", pattern=".*\\.csv$", required=true}),
 })
 -- spl:readPoints(etasl_application_share_dir.."/scripts/etasl/motion_models/hole_in_cylinder_contour.csv"," \t,",0)
 
