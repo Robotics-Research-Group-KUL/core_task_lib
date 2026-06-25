@@ -153,11 +153,22 @@ target    = frame(targetrot,targetpos)
 
 Constraint{
     context = ctx,
-    name    = "follow_path",
-    expr    = inv(target)*task_frame,
+    name    = "follow_path_position",
+    expr    = inv(rotation(target))*rotation(task_frame),
     weight  = constant(10),
     K       = constant(4),
+    priority= 2
 }
+
+Constraint{
+    context = ctx,
+    name    = "follow_path_rotation",
+    expr    = origin(target) - origin(task_frame),
+    weight  = constant(10),
+    K       = constant(4),
+    priority= 2
+}
+
 
 -- =================================== MONITOR TO FINISH THE MOTION ========================
 

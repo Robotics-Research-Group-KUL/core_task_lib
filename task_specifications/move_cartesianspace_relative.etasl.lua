@@ -154,8 +154,17 @@ target    = frame(targetrot,targetpos)
 -- ========================== CONSTRAINT SPECIFICATION =================================
 Constraint{
     context = ctx,
-    name    = "follow_path",
-    expr    = inv(target)*task_frame,
+    name    = "follow_path_position",
+    expr    = inv(rotation(target))*rotation(task_frame),
+    K       = 3,
+    weight  = 1,
+    priority= 2
+}
+
+Constraint{
+    context = ctx,
+    name    = "follow_path_rotation",
+    expr    = origin(target) - origin(task_frame),
     K       = 3,
     weight  = 1,
     priority= 2
