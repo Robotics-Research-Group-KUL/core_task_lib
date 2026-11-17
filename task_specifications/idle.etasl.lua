@@ -22,7 +22,10 @@ require("geometric")
 require("math")
 reqs = require("task_requirements")
 
-task_description = "Runs robot in idle state, e.g. so that joints_states are published."
+task_description = [[
+Keeps the robot in an idle state: no constraints are imposed, so the commanded joint velocities are zero and the robot stays still, while the controller keeps running (e.g. so that joint states and outputs keep being published).
+The robot model must contain the frame "tcp_frame". Outputs: position (x_tf, y_tf, z_tf) [m] and roll/pitch/yaw angles (roll_tf, pitch_tf, yaw_tf) [rad] of tcp_frame w.r.t. the robot base frame (root frame of the robot model).
+It has no parameters, no input channels and no exit monitor: it runs until it is stopped externally (e.g. by the skill/state machine).]]
 
 param = reqs.parameters(task_description,{
 

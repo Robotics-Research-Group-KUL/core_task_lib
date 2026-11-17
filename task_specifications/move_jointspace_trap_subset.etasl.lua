@@ -24,14 +24,19 @@ require("geometric")
 require("math")
 reqs = require("task_requirements")
 
-task_description = "Moves a subset of joints (in joint space) to a target pose specified using joint angles."
+task_description = [[
+Moves a subset of the robot joints (the joint names given in robot_joints) from their current values to the target joint values (target_joints); the other joints are not commanded by this task (they remain still unless other constraints move them).
+Each selected joint follows a trapezoidal velocity profile from its initial to its target value, limited by maxvel/maxacc; the profiles are synchronized so that all selected joints start and finish at the same time. The joints track these profiles with feedback constraints.
+No input channels are used. The task exits time_margin seconds (default 2 s) after the planned duration of the motion. Outputs: time, the positions of all robot joints (jpos1, jpos2, ...) and the tracking errors of the moved joints (tracking_error_<joint name>).]]
 
 param = reqs.parameters(task_description,{
-    reqs.params.scalar({name="maxvel", description="Maximum velocity rad/s", default = 0.1, required=true, maximum = 0.5}),
-    reqs.params.scalar({name="maxacc", description="Maximum acceleration rad/s^2", default = 0.1, required=true, maximum = 0.5}),
-    reqs.params.array({name="target_joints", type=reqs.array_types.number, default={0.0, 0.0, 0.0}, description="Array with target angles. Its values correspond to the defined in the parameter robot_joints (in the same order)", required=true, minimum = -360, maximum=360, minItems = 1}),
-    reqs.params.array({name="robot_joints", type=reqs.array_types.string, default={"joint_1", "joint_2", "joint_3"}, description="Joint names that are desired to be moved with a trapezoidal velocity profile. The size must coincide with the size of target_joints", required=true, minItems = 1}),
-    reqs.params.enum({name="units", type=reqs.enum_types.string, default="radians", description="Units to be used for specifying the joints", required=false, accepted_vals = {"degrees","radians"}}),
+    reqs.params.scalar({name="maxvel", description="Maximum joint velocity [rad/s] (or [m/s] for prismatic joints) of the trapezoidal profile, applied to every moved joint. The profiles of all joints are synchronized, so only the joint with the longest motion reaches this limit. Always given in SI units, independently of the units parameter", default = 0.1, required=true, maximum = 0.5}),
+    reqs.params.scalar({name="maxacc", description="Maximum joint acceleration [rad/s^2] (or [m/s^2] for prismatic joints) of the trapezoidal profile, applied to every moved joint. Always given in SI units, independently of the units parameter", default = 0.1, required=true, maximum = 0.5}),
+    reqs.params.array({name="target_joints", type=reqs.array_types.number, default={0.0, 0.0, 0.0}, description="Target values of the joints listed in robot_joints, in the same order (same length as robot_joints). Expressed in radians or degrees according to the units parameter (prismatic joints in meters; with units=degrees every value is multiplied by pi/180, so use radians when prismatic joints are included)", required=true, minimum = -360, maximum=360, minItems = 1}),
+    reqs.params.array({name="robot_joints", type=reqs.array_types.string, default={"joint_1", "joint_2", "joint_3"}, description="Names of the robot joints (as defined in the robot model) to be moved with the trapezoidal velocity profile. Must have the same length as target_joints and fewer elements than the total number of robot joints", required=true, minItems = 1}),
+    reqs.params.enum({name="units", type=reqs.enum_types.string, default="radians", description="Units of the angles given in target_joints: radians or degrees (degrees are converted to radians). It does not affect maxvel/maxacc", required=false, accepted_vals = {"degrees","radians"}}),
+    reqs.params.scalar({name="K_joint", description="Feedback gain [1/s] of the joint trajectory tracking constraints (same for all moved joints). Larger values reduce the tracking error w.r.t. the trapezoidal profile faster; too large values can cause oscillations or saturate the joint velocities", default = 3, required=false, minimum = 0}),
+    reqs.params.scalar({name="time_margin", description="Extra time [s] that the task keeps running (holding the target) after the planned duration of the trapezoidal profile has elapsed, before the exit monitor finishes the task. Gives the joints time to settle at the target", default = 2, required=false, minimum = 0}),
 })
 
 robot = reqs.robot_model({
@@ -49,7 +54,7 @@ target_joints = param.get("target_joints")
 robot_joints = param.get("robot_joints")
 
 
-if #robot.robot_joints <= #target_joints then
+if #robot.robot_joints < #target_joints then
     error("The number of target_joints (" .. tostring(#target_joints) .. ") must be less than or equal to the number of specified robot.robot_joints (" .. tostring(#robot.robot_joints) ..  ")")
 end
 
@@ -109,7 +114,7 @@ for i=1,#robot_joints do
         name="joint_trajectory_"..robot_joints[i],
         expr= current_jnt[i] - tgt[i] ,
         priority = 2,
-        K=3
+        K=param.get("K_joint")
     };
     tracking_error[i] = current_jnt[i] - tgt[i]
 
@@ -156,7 +161,7 @@ Monitor{
         name='finish_after_motion_ended',
         upper=0.0,
         actionname='exit',
-        expr=time-duration -constant(2)
+        expr=time-duration -constant(param.get("time_margin"))
 }
 
 -- Monitor {

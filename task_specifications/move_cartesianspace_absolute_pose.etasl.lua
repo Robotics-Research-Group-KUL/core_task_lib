@@ -25,18 +25,25 @@ require("math")
 
 reqs = require("task_requirements")
  
-task_description = "This task specification allows to a desired task frame to a desired pose in cartesian space."
+task_description = [[
+Moves a task frame of the robot to a desired absolute pose (desired_pose) expressed w.r.t. the robot base frame (root frame of the robot model).
+The position follows a straight line from the initial to the desired position, and the orientation rotates about a single fixed axis from the initial to the desired orientation. Both are timed by one synchronized trapezoidal velocity profile limited by maxvel/maxacc (the rotation is converted to a distance with the equivalent radius eq_r), so they start and finish together. The task frame tracks this moving target with feedback constraints.
+No input channels are used. The task exits when the position error w.r.t. the desired pose is below error_pos_th and the orientation error is below error_rot_th. Outputs: time and the position (x_tf, y_tf, z_tf) [m] of the task frame w.r.t. the robot base frame.]]
 
 -- ========================================= PARAMETERS ===================================
  
 param = reqs.parameters(task_description,{
-    reqs.params.scalar({name="maxvel", description="Maximum velocity [m/s]", default = 0.1, required=true, maximum = 0.5}),
-    reqs.params.scalar({name="maxacc", description="Maximum acceleration [m/s^2]", default = 0.1, required=true, maximum = 0.5}),
-    reqs.params.scalar({name="eq_r", description="Equivalent radius [m]", default = 0.08, required=false}),
-    reqs.params.scalar({name="error_pos_th", description="Position error threshold for monitoring [m]", default = 0.0005, required=false}),
-    reqs.params.scalar({name="error_rot_th", description="Rotation error threshold for monitoring [rad]", default = 0.01, required=false}),
-    reqs.params.string({name="task_frame", description="Name of frame used to control the robot in cartesian space", default = "tcp_frame", required=false}),
-    reqs.params.array({name="desired_pose", type=reqs.array_types.number, default={0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0}, description="Array with the desired pose of the task frame in [x,y,z,qx,qy,qz,qw]", required=true, minItems = 7, maxItems = 7}),
+    reqs.params.scalar({name="maxvel", description="Maximum velocity [m/s] of the trapezoidal motion profile. It limits the translational speed of the task frame along the path, and also the rotational motion, expressed as angle*eq_r (i.e. the maximum angular velocity is maxvel/eq_r [rad/s])", default = 0.1, required=true, maximum = 0.5}),
+    reqs.params.scalar({name="maxacc", description="Maximum acceleration [m/s^2] of the trapezoidal motion profile, for the translation and for the rotation expressed as angle*eq_r (i.e. the maximum angular acceleration is maxacc/eq_r [rad/s^2])", default = 0.1, required=true, maximum = 0.5}),
+    reqs.params.scalar({name="eq_r", description="Equivalent radius [m] used to convert the rotation angle [rad] into an equivalent distance (angle*eq_r) so that rotation and translation share the same maxvel/maxacc limits. A larger eq_r makes the rotation slower (max angular velocity maxvel/eq_r)", default = 0.08, required=false}),
+    reqs.params.scalar({name="error_pos_th", description="Position error threshold [m] of the exit monitor: the task finishes when the distance between the task frame and the final target position is below this value (and the orientation error is below error_rot_th)", default = 0.0005, required=false}),
+    reqs.params.scalar({name="error_rot_th", description="Orientation error threshold [rad] of the exit monitor: the task finishes when the rotation angle between the task frame and the final target orientation is below this value (and the position error is below error_pos_th)", default = 0.01, required=false}),
+    reqs.params.string({name="task_frame", description="Name of the robot frame (as defined in the robot model, e.g. URDF link or tcp_frame) that is moved in Cartesian space", default = "tcp_frame", required=false}),
+    reqs.params.array({name="desired_pose", type=reqs.array_types.number, default={0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0}, description="Desired (absolute) pose of the task frame w.r.t. the robot base frame (root frame of the robot model), as [x,y,z,qx,qy,qz,qw]: position x,y,z [m] followed by the orientation as a unit quaternion with the scalar part last (qw)", required=true, minItems = 7, maxItems = 7}),
+    reqs.params.scalar({name="K_position", description="Feedback gain [1/s] of the constraint that makes the task frame position follow the generated straight-line path. Larger values reduce the tracking error faster; too large values can cause oscillations or saturate the joint velocities", default = 3, required=false, minimum = 0}),
+    reqs.params.scalar({name="K_rotation", description="Feedback gain [1/s] of the constraint that makes the task frame orientation follow the generated rotation profile. Larger values reduce the tracking error faster; too large values can cause oscillations or saturate the joint velocities", default = 3, required=false, minimum = 0}),
+    reqs.params.scalar({name="weight_position", description="Weight (dimensionless) of the position tracking constraint relative to the other constraints of the same priority (e.g. the orientation constraint). Only relative weights matter: a higher weight makes position tracking dominate when the constraints conflict", default = 1, required=false, minimum = 0}),
+    reqs.params.scalar({name="weight_rotation", description="Weight (dimensionless) of the orientation tracking constraint relative to the other constraints of the same priority (e.g. the position constraint). Only relative weights matter: a higher weight makes orientation tracking dominate when the constraints conflict", default = 1, required=false, minimum = 0}),
 })
 
 -- TODO: Change order of quaterinions in the skill.
@@ -123,19 +130,19 @@ target    = frame(targetrot,targetpos)
 
 Constraint{
     context = ctx,
-    name    = "follow_path_position",
+    name    = "follow_path_rotation",
     expr    = inv(rotation(target))*rotation(task_frame),
-    K       = 3,
-    weight  = 1,
+    K       = param.get("K_rotation"),
+    weight  = param.get("weight_rotation"),
     priority= 2
 }
 
 Constraint{
     context = ctx,
-    name    = "follow_path_rotation",
+    name    = "follow_path_position",
     expr    = origin(target) - origin(task_frame),
-    K       = 3,
-    weight  = 1,
+    K       = param.get("K_position"),
+    weight  = param.get("weight_position"),
     priority= 2
 }
 

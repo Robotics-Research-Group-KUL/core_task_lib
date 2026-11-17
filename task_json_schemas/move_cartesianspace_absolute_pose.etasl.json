@@ -40,11 +40,11 @@
                 }],
               "default":[0,0,0,0,0,0,1],
               "examples":["$blackboard/output_param/my_task/desired_pose","$application_defined_parameter"],
-              "description":"Array with the desired pose of the task frame in [x,y,z,qx,qy,qz,qw]. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
+              "description":"Desired (absolute) pose of the task frame w.r.t. the robot base frame (root frame of the robot model), as [x,y,z,qx,qy,qz,qw]: position x,y,z [m] followed by the orientation as a unit quaternion with the scalar part last (qw)"
             },
-            "error_pos_th":{
+            "task_frame":{
               "oneOf":[{
-                  "type":"number"
+                  "type":"string"
                 },{
                   "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
                   "type":"string"
@@ -52,23 +52,9 @@
                   "const":"$application_defined_parameter",
                   "type":"string"
                 }],
-              "default":0.0005,
-              "examples":["$blackboard/output_param/my_task/error_pos_th","$application_defined_parameter"],
-              "description":"Position error threshold for monitoring [m]. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
-            },
-            "eq_r":{
-              "oneOf":[{
-                  "type":"number"
-                },{
-                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
-                  "type":"string"
-                },{
-                  "const":"$application_defined_parameter",
-                  "type":"string"
-                }],
-              "default":0.08,
-              "examples":["$blackboard/output_param/my_task/eq_r","$application_defined_parameter"],
-              "description":"Equivalent radius [m]. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
+              "default":"tcp_frame",
+              "examples":["$blackboard/output_param/my_task/task_frame","$application_defined_parameter"],
+              "description":"Name of the robot frame (as defined in the robot model, e.g. URDF link or tcp_frame) that is moved in Cartesian space"
             },
             "maxacc":{
               "oneOf":[{
@@ -83,11 +69,12 @@
                 }],
               "default":0.1,
               "examples":["$blackboard/output_param/my_task/maxacc","$application_defined_parameter"],
-              "description":"Maximum acceleration [m/s^2]. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
+              "description":"Maximum acceleration [m/s^2] of the trapezoidal motion profile, for the translation and for the rotation expressed as angle*eq_r (i.e. the maximum angular acceleration is maxacc/eq_r [rad/s^2])"
             },
-            "task_frame":{
+            "K_position":{
               "oneOf":[{
-                  "type":"string"
+                  "minimum":0,
+                  "type":"number"
                 },{
                   "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
                   "type":"string"
@@ -95,9 +82,9 @@
                   "const":"$application_defined_parameter",
                   "type":"string"
                 }],
-              "default":"tcp_frame",
-              "examples":["$blackboard/output_param/my_task/task_frame","$application_defined_parameter"],
-              "description":"Name of frame used to control the robot in cartesian space. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
+              "default":3,
+              "examples":["$blackboard/output_param/my_task/K_position","$application_defined_parameter"],
+              "description":"Feedback gain [1/s] of the constraint that makes the task frame position follow the generated straight-line path. Larger values reduce the tracking error faster; too large values can cause oscillations or saturate the joint velocities"
             },
             "error_rot_th":{
               "oneOf":[{
@@ -111,7 +98,80 @@
                 }],
               "default":0.01,
               "examples":["$blackboard/output_param/my_task/error_rot_th","$application_defined_parameter"],
-              "description":"Rotation error threshold for monitoring [rad]. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
+              "description":"Orientation error threshold [rad] of the exit monitor: the task finishes when the rotation angle between the task frame and the final target orientation is below this value (and the position error is below error_pos_th)"
+            },
+            "weight_position":{
+              "oneOf":[{
+                  "minimum":0,
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":1,
+              "examples":["$blackboard/output_param/my_task/weight_position","$application_defined_parameter"],
+              "description":"Weight (dimensionless) of the position tracking constraint relative to the other constraints of the same priority (e.g. the orientation constraint). Only relative weights matter: a higher weight makes position tracking dominate when the constraints conflict"
+            },
+            "eq_r":{
+              "oneOf":[{
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0.08,
+              "examples":["$blackboard/output_param/my_task/eq_r","$application_defined_parameter"],
+              "description":"Equivalent radius [m] used to convert the rotation angle [rad] into an equivalent distance (angle*eq_r) so that rotation and translation share the same maxvel/maxacc limits. A larger eq_r makes the rotation slower (max angular velocity maxvel/eq_r)"
+            },
+            "weight_rotation":{
+              "oneOf":[{
+                  "minimum":0,
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":1,
+              "examples":["$blackboard/output_param/my_task/weight_rotation","$application_defined_parameter"],
+              "description":"Weight (dimensionless) of the orientation tracking constraint relative to the other constraints of the same priority (e.g. the position constraint). Only relative weights matter: a higher weight makes orientation tracking dominate when the constraints conflict"
+            },
+            "K_rotation":{
+              "oneOf":[{
+                  "minimum":0,
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":3,
+              "examples":["$blackboard/output_param/my_task/K_rotation","$application_defined_parameter"],
+              "description":"Feedback gain [1/s] of the constraint that makes the task frame orientation follow the generated rotation profile. Larger values reduce the tracking error faster; too large values can cause oscillations or saturate the joint velocities"
+            },
+            "error_pos_th":{
+              "oneOf":[{
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0.0005,
+              "examples":["$blackboard/output_param/my_task/error_pos_th","$application_defined_parameter"],
+              "description":"Position error threshold [m] of the exit monitor: the task finishes when the distance between the task frame and the final target position is below this value (and the orientation error is below error_rot_th)"
             },
             "maxvel":{
               "oneOf":[{
@@ -126,7 +186,7 @@
                 }],
               "default":0.1,
               "examples":["$blackboard/output_param/my_task/maxvel","$application_defined_parameter"],
-              "description":"Maximum velocity [m/s]. \nSet as a string beginning with $blackboard such as `$blackboard/output_param/my_task/my_param` if the value is not yet known and thus will be set externally at runtime (only once) depending on e.g. the outcome of a previous action or the outcome of another module.\nSet as $application_defined_parameter to indicate that the parameter is defined by the application and not by the skill specification."
+              "description":"Maximum velocity [m/s] of the trapezoidal motion profile. It limits the translational speed of the task frame along the path, and also the rotational motion, expressed as angle*eq_r (i.e. the maximum angular velocity is maxvel/eq_r [rad/s])"
             }
           },
           "additionalProperties":false,
@@ -140,7 +200,7 @@
         "is-move_cartesianspace_absolute_pose":{
           "const":true,
           "type":"boolean",
-          "description":"Task Specification: move_cartesianspace_absolute_pose.etasl.lua\nSet to true to indicate that the task uses the task specification mentioned above. \n Task description: This task specification allows to a desired task frame to a desired pose in cartesian space."
+          "description":"Task Specification: move_cartesianspace_absolute_pose.etasl.lua\nSet to true to indicate that the task uses the task specification mentioned above. \n Task description: Moves a task frame of the robot to a desired absolute pose (desired_pose) expressed w.r.t. the robot base frame (root frame of the robot model).\nThe position follows a straight line from the initial to the desired position, and the orientation rotates about a single fixed axis from the initial to the desired orientation. Both are timed by one synchronized trapezoidal velocity profile limited by maxvel/maxacc (the rotation is converted to a distance with the equivalent radius eq_r), so they start and finish together. The task frame tracks this moving target with feedback constraints.\nNo input channels are used. The task exits when the position error w.r.t. the desired pose is below error_pos_th and the orientation error is below error_rot_th. Outputs: time and the position (x_tf, y_tf, z_tf) [m] of the task frame w.r.t. the robot base frame."
         }
       }
     }

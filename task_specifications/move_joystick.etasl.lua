@@ -24,16 +24,24 @@ reqs = require("task_requirements")
 
 
 -- ========================================= PARAMETERS ===================================
-task_description = "This task specification allows to control the angular and linear velocity the end effector via a 6D joystick (a.k.a. spacemouse)."
+task_description = [[
+Teleoperates a task frame of the robot (e.g. the end effector) in Cartesian velocity with a 6D joystick (a.k.a. spacemouse).
+Input channel: named by joystick_input_channel (default "joystick_input"), of type Twist, typically provided by a TwistInputHandler subscribed to the joystick topic. When activate_linear is true, the linear velocity of the task frame along the X,Y,Z axes of the robot base frame (root frame of the robot model) follows the linear part of the twist times linear_scale; otherwise the position of the task frame is kept fixed at its initial value. When activate_angular is true, the time derivatives of the rotation-vector components of the task frame orientation (w.r.t. the robot base frame) follow the angular part of the twist times angular_scale; otherwise the orientation is kept fixed at its initial value.
+The task runs until stopped externally, unless execution_time > 0, in which case it exits after execution_time seconds. Outputs: time, position (x_tf, y_tf, z_tf) [m] and orientation quaternion (qx_tf, qy_tf, qz_tf, qw_tf) of the task frame w.r.t. the robot base frame.]]
 
 param = reqs.parameters(task_description,{
-    reqs.params.scalar({name="linear_scale", description="Scales the magnitude of the linear velocity coming from the joystick", default = 0.3, required=false}),
-    reqs.params.scalar({name="angular_scale", description="Scales the magnitude of the angular velocity coming from the joystick", default = 0.3, required=false}),
-    reqs.params.string({name="task_frame", description="Name of frame used to control the robot in cartesian space", default = "tcp_frame", required=false}),
-    reqs.params.bool({name="activate_linear", description="If true, the linear velocities of the joystick will control the linear velocities of the defined frame", default = true, required=true}),
-    reqs.params.bool({name="activate_angular", description="If true, the angular velocities of the joystick will control the angular velocities of the defined frame", default = false, required=true}),
-    reqs.params.scalar({name="execution_time", description="Time (seconds) that the task should run before stopping. If zero, the execution will not stop automatically (i.e. no monitor will be triggered)", default = 0, required=false, minimum = 0}),
+    reqs.params.scalar({name="linear_scale", description="Scale factor applied to the linear part of the joystick twist: commanded linear velocity of the task frame [m/s] = joystick linear input * linear_scale. Larger values make the robot move faster for the same joystick deflection", default = 0.3, required=false}),
+    reqs.params.scalar({name="angular_scale", description="Scale factor applied to the angular part of the joystick twist: commanded angular rate of the task frame [rad/s] = joystick angular input * angular_scale. Larger values make the robot rotate faster for the same joystick deflection", default = 0.3, required=false}),
+    reqs.params.string({name="task_frame", description="Name of the robot frame (as defined in the robot model, e.g. URDF link or tcp_frame) that is teleoperated in Cartesian space", default = "tcp_frame", required=false}),
+    reqs.params.bool({name="activate_linear", description="If true, the linear part of the joystick twist controls the linear velocity of the task frame (along the robot base frame axes). If false, the position of the task frame is kept fixed at its initial value", default = true, required=true}),
+    reqs.params.bool({name="activate_angular", description="If true, the angular part of the joystick twist controls the rotation of the task frame. If false, the orientation of the task frame is kept fixed at its initial value", default = false, required=true}),
+    reqs.params.scalar({name="execution_time", description="Time [s] after which the task stops automatically (exit monitor). If zero (default), the task does not stop by itself and runs until stopped externally", default = 0, required=false, minimum = 0}),
+    reqs.params.scalar({name="K_fixed_position", description="Feedback gain [1/s] of the constraint that keeps the position of the task frame fixed at its initial value (used when activate_linear is false). Larger values correct deviations faster", default = 4, required=false, minimum = 0}),
+    reqs.params.scalar({name="K_fixed_rotation", description="Feedback gain [1/s] of the constraint that keeps the orientation of the task frame fixed at its initial value (used when activate_angular is false). Larger values correct deviations faster", default = 4, required=false, minimum = 0}),
+    reqs.params.scalar({name="weight_linear", description="Weight (dimensionless) of the translational constraints (the three linear velocity constraints, or the fixed-position constraint when activate_linear is false) relative to the other constraints of the same priority. Only relative weights matter: a higher weight makes them dominate when constraints conflict", default = 1, required=false, minimum = 0}),
+    reqs.params.scalar({name="weight_angular", description="Weight (dimensionless) of the rotational constraints (the three angular velocity constraints, or the fixed-orientation constraint when activate_angular is false) relative to the other constraints of the same priority. Only relative weights matter: a higher weight makes them dominate when constraints conflict", default = 1, required=false, minimum = 0}),
 
+    reqs.params.string({name="joystick_input_channel", description="Name of the input channel (type twist) from which the joystick velocities are read: the varname of the input handler that provides it (e.g. a TwistInputHandler subscribed to /spacenav/twist). Change it to use another joystick or input handler", default = "joystick_input", required=false}),
 })
 linear_scale    = constant(param.get("linear_scale"))
 angular_scale    = constant(param.get("angular_scale"))
@@ -49,7 +57,7 @@ robot_joints = robot.robot_joints
 task_frame = robot.getFrame(param.get("task_frame"))
 
 -- ========================================= Variables coming from topic input handlers ===================================
-joystick_input   = ctx:createInputChannelTwist("joystick_input")
+joystick_input   = ctx:createInputChannelTwist(param.get("joystick_input_channel"))
 
 -- joystick_input = twist(vector(0,0,-0.05),vector(0,0,0))
 
@@ -72,7 +80,7 @@ if param.get("activate_linear") then
         expr    = coord_x(origin(tf_inst)),
         target  = desired_vel_x*time,
         K       = 0,
-        weight  = 1,
+        weight  = param.get("weight_linear"),
         priority= 2
     };
     
@@ -82,7 +90,7 @@ if param.get("activate_linear") then
         expr    = coord_y(origin(tf_inst)),
         target  = desired_vel_y*time,
         K       = 0,
-        weight  = 1,
+        weight  = param.get("weight_linear"),
         priority= 2
     };
     
@@ -92,7 +100,7 @@ if param.get("activate_linear") then
         expr    = coord_z(origin(tf_inst)),
         target  = desired_vel_z*time,
         K       = 0,
-        weight  = 1,
+        weight  = param.get("weight_linear"),
         priority= 2
     };
 else
@@ -101,8 +109,8 @@ else
         name    = "keep_translation_constant",
         expr    = origin(tf_inst),
         target  = initial_value(time, origin(tf_inst)),
-        K       = 4,
-        weight  = 1,
+        K       = param.get("K_fixed_position"),
+        weight  = param.get("weight_linear"),
         priority= 2
     };
 
@@ -120,7 +128,7 @@ if param.get("activate_angular") then
         name    = "x_angular",
         expr    = coord_x(getRotVec(rotation(tf_inst))) - desired_omega_x*time,
         K       = 0,
-        weight  = 1,
+        weight  = param.get("weight_angular"),
         priority= 2
     };
 
@@ -129,7 +137,7 @@ if param.get("activate_angular") then
         name    = "y_angular",
         expr    = coord_y(getRotVec(rotation(tf_inst))) - desired_omega_y*time,
         K       = 0,
-        weight  = 1,
+        weight  = param.get("weight_angular"),
         priority= 2
     };
 
@@ -138,7 +146,7 @@ if param.get("activate_angular") then
         name    = "z_angular",
         expr    = coord_z(getRotVec(rotation(tf_inst))) - desired_omega_z*time,
         K       = 0,
-        weight  = 1,
+        weight  = param.get("weight_angular"),
         priority= 2
     };
 
@@ -147,8 +155,8 @@ else
         context = ctx,
         name    = "keep_rotation_constant",
         expr    = rotation(tf_inst)*initial_value(time, rotation(tf_inst)),
-        K       = 4,
-        weight  = 1,
+        K       = param.get("K_fixed_rotation"),
+        weight  = param.get("weight_angular"),
         priority= 2
     };
 
