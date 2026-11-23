@@ -1,0 +1,206 @@
+{
+  "type":"object",
+  "description":"Parameters needed to the corresponding task specification in eTaSL",
+  "properties":{
+    "from-core_task_lib-version-1.0.2":{
+      "const":true,
+      "type":"boolean",
+      "description":"Library core_task_lib version 1.0.2.\n Set to true to indicate that task specification comes from the library above. \n Library description: Library with basic task specifications that may be needed in most applications\nAuthors: Santiago Iregui (KU Leuven), Erwin Aertbeliën (KU Leuven), Federico Ulloa (KU Leuven)"
+    }
+  },
+  "$schema":"http://json-schema.org/draft-06/schema#",
+  "additionalProperties":true,
+  "dependencies":{
+    "is-move_joystick_bspline_fixture":{
+      "required":["file_path","parameters"],
+      "properties":{
+        "file_path":{
+          "const":"$[crospi_application_template]/task_specifications/libraries/core_task_lib/task_specifications/move_joystick_bspline_fixture.etasl.lua",
+          "type":"string",
+          "description":"File path of the corresponding task specification"
+        },
+        "parameters":{
+          "type":"object",
+          "description":"List of parameters needed to define an instance of the task specification",
+          "properties":{
+            "joystick_input_channel":{
+              "oneOf":[{
+                  "type":"string"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":"joystick_input",
+              "examples":["$blackboard/output_param/my_task/joystick_input_channel","$application_defined_parameter"],
+              "description":"Name of the input channel (type twist) from which the joystick velocities are read: the varname of the input handler that provides it (e.g. a TwistInputHandler subscribed to /spacenav/twist)"
+            },
+            "activate_angular_fixture":{
+              "oneOf":[{
+                  "type":"boolean"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":true,
+              "examples":["$blackboard/output_param/my_task/activate_angular_fixture","$application_defined_parameter"],
+              "description":"If true, the z-axis of the task frame is kept tangent to the spline of the fixture"
+            },
+            "task_frame":{
+              "oneOf":[{
+                  "type":"string"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":"tcp_frame",
+              "examples":["$blackboard/output_param/my_task/task_frame","$application_defined_parameter"],
+              "description":"Name of frame used to control the robot in cartesian space"
+            },
+            "activate_angular":{
+              "oneOf":[{
+                  "type":"boolean"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":false,
+              "examples":["$blackboard/output_param/my_task/activate_angular","$application_defined_parameter"],
+              "description":"If true, the angular velocities of the joystick will control the angular velocities of the defined frame"
+            },
+            "angular_scale":{
+              "oneOf":[{
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0.3,
+              "examples":["$blackboard/output_param/my_task/angular_scale","$application_defined_parameter"],
+              "description":"Scales the magnitude of the angular velocity coming from the joystick"
+            },
+            "fixture_base":{
+              "oneOf":[{
+                  "items":{
+                    "type":"number"
+                  },
+                  "type":"array",
+                  "minItems":7,
+                  "maxItems":7
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":[0,-0.68,0.18,0,0,0,1],
+              "examples":["$blackboard/output_param/my_task/fixture_base","$application_defined_parameter"],
+              "description":"Pose of the base frame of the fixture w.r.t. the robot base frame: [x,y,z,qx,qy,qz,qw] (position [m] and quaternion). The fixture starts at its origin and goes along its z-axis"
+            },
+            "linear_scale":{
+              "oneOf":[{
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0.3,
+              "examples":["$blackboard/output_param/my_task/linear_scale","$application_defined_parameter"],
+              "description":"Scales the magnitude of the linear velocity coming from the joystick"
+            },
+            "height":{
+              "oneOf":[{
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0.5,
+              "examples":["$blackboard/output_param/my_task/height","$application_defined_parameter"],
+              "description":"Height [m] of the fixture, along the z-axis of fixture_base"
+            },
+            "radius":{
+              "oneOf":[{
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0.2,
+              "examples":["$blackboard/output_param/my_task/radius","$application_defined_parameter"],
+              "description":"Radius [m] of the top disk of the fixture: the end point of the spline stays inside it"
+            },
+            "execution_time":{
+              "oneOf":[{
+                  "minimum":0,
+                  "type":"number"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":0,
+              "examples":["$blackboard/output_param/my_task/execution_time","$application_defined_parameter"],
+              "description":"Time (seconds) that the task should run before stopping. If zero, the execution will not stop automatically (i.e. no monitor will be triggered)"
+            },
+            "activate_linear":{
+              "oneOf":[{
+                  "type":"boolean"
+                },{
+                  "pattern":"^\\$blackboard(/[a-zA-Z0-9_\\-]+)+$",
+                  "type":"string"
+                },{
+                  "const":"$application_defined_parameter",
+                  "type":"string"
+                }],
+              "default":true,
+              "examples":["$blackboard/output_param/my_task/activate_linear","$application_defined_parameter"],
+              "description":"If true, the linear velocities of the joystick will control the linear velocities of the defined frame"
+            }
+          },
+          "additionalProperties":false,
+          "required":["activate_linear","activate_angular","activate_angular_fixture","radius","height","fixture_base"]
+        }
+      }
+    },
+    "from-core_task_lib-version-1.0.2":{
+      "required":["is-move_joystick_bspline_fixture"],
+      "properties":{
+        "is-move_joystick_bspline_fixture":{
+          "const":true,
+          "type":"boolean",
+          "description":"Task Specification: move_joystick_bspline_fixture.etasl.lua\nSet to true to indicate that the task uses the task specification mentioned above. \n Task description: Teleoperation with a 6D joystick (a.k.a. spacemouse) along a virtual fixture shaped as a horn: the origin of the task frame is kept on a quadratic B-spline that starts at the base of the fixture (fixture_base) and ends at a point of its top disk (radius, at height); the end point (feature variables p_x, p_y) and the progress along the spline (feature variable s) are free, so the joystick velocities move the tool along and around the horn. Optionally, the orientation of the task frame is kept tangent to the spline (its z-axis along the spline)."
+        }
+      }
+    }
+  },
+  "required":["from-core_task_lib-version-1.0.2"],
+  "$id":"move_joystick_bspline_fixture",
+  "title":"Task Specification Configuration"
+}
